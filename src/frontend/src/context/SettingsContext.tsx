@@ -15,8 +15,6 @@ export interface DashboardSettings {
   showSparklines: boolean;
   showSupplyProgress: boolean;
   compactMode: boolean;
-  // Supply
-  supplyBurned: number;
 }
 
 const DEFAULT: DashboardSettings = {
@@ -28,7 +26,6 @@ const DEFAULT: DashboardSettings = {
   showSparklines: true,
   showSupplyProgress: true,
   compactMode: false,
-  supplyBurned: 35_420_000,
 };
 
 interface SettingsContextValue {

@@ -1,12 +1,15 @@
 import {
   CanisterGrowthChart,
+  IcpPriceMarketCapChart,
   MarketCapChart,
   NodeProviderChart,
   VolumeChart,
 } from "@/components/dashboard/Charts";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { LiquidityTable } from "@/components/dashboard/LiquidityTable";
+import { MintBurnRatio } from "@/components/dashboard/MintBurnRatio";
 import { SettingsPanel } from "@/components/dashboard/SettingsPanel";
+import { TokenomicsCards } from "@/components/dashboard/TokenomicsCards";
 import { WhaleAlerts } from "@/components/dashboard/WhaleAlerts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +25,6 @@ import {
   CheckCircle2,
   CircleDollarSign,
   Cpu,
-  Flame,
   Globe,
   Network,
   RefreshCw,
@@ -183,9 +185,6 @@ function DashboardTab({
     ? (market.circulatingSupply / market.totalSupply) * 100
     : 93.6;
 
-  const priceSparkline = buildSparkline(icpPrice);
-  const mcSparkline = buildSparkline(market?.marketCap ?? 5_850_000_000, 14);
-
   const [canisters, setCanisters] = useState(TOTAL_CANISTERS_START);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -200,72 +199,140 @@ function DashboardTab({
 
   const totalSubnets = network?.totalSubnets ?? 41;
   const totalNodes = network?.totalNodes ?? 1312;
+  const btcPrice = market?.btcPrice ?? 85_000;
+  const icpDominance = market?.icpDominance ?? 0.15;
+  const circSupply = market
+    ? `${(market.circulatingSupply / 1_000_000).toFixed(1)}M`
+    : "468.0M";
+  const change24h = market?.change24h ?? 0;
 
   return (
     <div
-      className={`flex flex-col gap-5 ${settings.compactMode ? "text-xs" : ""}`}
+      className={`flex flex-col gap-3 ${settings.compactMode ? "text-xs" : ""}`}
     >
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          title="ICP Price"
-          value={`$${icpPrice.toFixed(2)}`}
-          change={market?.change24h}
-          icon={<CircleDollarSign className="h-4 w-4" />}
-          sparklineData={settings.showSparklines ? priceSparkline : undefined}
-          accentColor="cyan"
-          isLoading={isLoading}
-        />
-        <KpiCard
-          title="Market Cap"
-          value={mcValue}
-          change={market?.change24h}
-          icon={<TrendingUp className="h-4 w-4" />}
-          sparklineData={settings.showSparklines ? mcSparkline : undefined}
-          accentColor="cyan"
-          isLoading={isLoading}
-        />
-        <KpiCard
-          title="Circulating Supply"
-          value={
-            market
-              ? `${(market.circulatingSupply / 1_000_000).toFixed(1)}M ICP`
-              : "468M ICP"
-          }
-          icon={<Globe className="h-4 w-4" />}
-          accentColor="green"
-          isLoading={isLoading}
+      {/* Compact 4-column stat row */}
+      <div
+        className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+        data-ocid="dashboard.section"
+      >
+        {/* ICP Price */}
+        <div
+          className="card-glass rounded-lg px-3 py-2 shadow-card flex flex-col gap-0.5"
+          data-ocid="icp_price.card"
         >
+          <div className="flex items-center gap-1.5">
+            <CircleDollarSign className="h-3.5 w-3.5 text-cyan" />
+            <span className="text-xs text-muted-foreground">ICP Price</span>
+          </div>
+          <div className="text-lg font-bold text-foreground">
+            {isLoading ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              `$${icpPrice.toFixed(2)}`
+            )}
+          </div>
+          {change24h !== 0 && (
+            <span
+              className={`text-xs font-semibold ${
+                change24h >= 0 ? "text-green" : "text-red-custom"
+              }`}
+            >
+              {change24h >= 0 ? "+" : ""}
+              {change24h.toFixed(2)}%
+            </span>
+          )}
+        </div>
+
+        {/* Market Cap */}
+        <div
+          className="card-glass rounded-lg px-3 py-2 shadow-card flex flex-col gap-0.5"
+          data-ocid="market_cap.card"
+        >
+          <div className="flex items-center gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5 text-cyan" />
+            <span className="text-xs text-muted-foreground">Market Cap</span>
+          </div>
+          <div className="text-lg font-bold text-foreground">
+            {isLoading ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              mcValue
+            )}
+          </div>
+          {change24h !== 0 && (
+            <span
+              className={`text-xs font-semibold ${
+                change24h >= 0 ? "text-green" : "text-red-custom"
+              }`}
+            >
+              {change24h >= 0 ? "+" : ""}
+              {change24h.toFixed(2)}%
+            </span>
+          )}
+        </div>
+
+        {/* ICP Dominance */}
+        <div
+          className="card-glass rounded-lg px-3 py-2 shadow-card flex flex-col gap-0.5"
+          data-ocid="icp_dominance.card"
+        >
+          <div className="flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-cyan" />
+            <span className="text-xs text-muted-foreground">ICP Dominance</span>
+          </div>
+          <div className="text-lg font-bold text-foreground">
+            {isLoading ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              `${icpDominance.toFixed(2)}%`
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground">
+            of total mkt cap
+          </span>
+        </div>
+
+        {/* Circulating Supply */}
+        <div
+          className="card-glass rounded-lg px-3 py-2 shadow-card flex flex-col gap-0.5"
+          data-ocid="circulating_supply.card"
+        >
+          <div className="flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-green" />
+            <span className="text-xs text-muted-foreground">Circulating</span>
+          </div>
+          <div className="text-lg font-bold text-foreground">
+            {isLoading ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              `${circSupply} ICP`
+            )}
+          </div>
           {settings.showSupplyProgress && (
-            <div className="flex flex-col gap-1">
-              <Progress value={supplyPct} className="h-1.5" />
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              <Progress value={supplyPct} className="h-1" />
               <span className="text-xs text-muted-foreground">
                 {supplyPct.toFixed(1)}% of total
               </span>
             </div>
           )}
-        </KpiCard>
-        <KpiCard
-          title="Total Supply Burned"
-          value={`${(settings.supplyBurned / 1_000_000).toFixed(2)}M ICP`}
-          changeLabel="all time"
-          icon={<Flame className="h-4 w-4 text-orange" />}
-          accentColor="orange"
-          isLoading={false}
-        >
-          <span className="text-xs text-muted-foreground">
-            &asymp; $
-            {((settings.supplyBurned * icpPrice) / 1_000_000).toFixed(0)}M value
-            burned
-          </span>
-        </KpiCard>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Full-width price + market cap chart */}
+      <IcpPriceMarketCapChart
+        icpPrice={icpPrice}
+        marketCap={market?.marketCap ?? 5_850_000_000}
+      />
+
+      <TokenomicsCards icpPrice={icpPrice} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <WhaleAlerts icpPrice={icpPrice} />
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <VolumeChart />
           <div
-            className="card-glass rounded-lg p-4 shadow-card"
+            className="card-glass rounded-lg p-3 shadow-card"
             data-ocid="network_status.card"
           >
             <div className="flex items-center justify-between mb-3">
@@ -276,7 +343,7 @@ function DashboardTab({
                 Operational
               </Badge>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground">Uptime</span>
                 <span className="text-lg font-bold text-green">99.99%</span>
@@ -304,7 +371,7 @@ function DashboardTab({
         </div>
 
         <div
-          className="card-glass rounded-lg p-5 shadow-card flex flex-col gap-3"
+          className="card-glass rounded-lg p-3 shadow-card flex flex-col gap-3"
           data-ocid="canisters.card"
         >
           <div className="flex items-center gap-2">
@@ -347,12 +414,14 @@ function DashboardTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <NodeProviderChart />
         <CanisterGrowthChart />
       </div>
 
-      <LiquidityTable icpPrice={icpPrice} />
+      <MintBurnRatio />
+
+      <LiquidityTable icpPrice={icpPrice} btcPrice={btcPrice} />
     </div>
   );
 }
@@ -375,10 +444,11 @@ function MarketTab({
   const volValue = market
     ? `$${(market.volume24h / 1_000_000).toFixed(1)}M`
     : "$42M";
+  const btcPrice = market?.btcPrice ?? 85_000;
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
           title="ICP Price"
           value={`$${icpPrice.toFixed(2)}`}
@@ -403,16 +473,11 @@ function MarketTab({
           accentColor="green"
           isLoading={isLoading}
         />
-        <KpiCard
-          title="Supply Burned"
-          value={`${(settings.supplyBurned / 1_000_000).toFixed(2)}M`}
-          icon={<Flame className="h-4 w-4 text-orange" />}
-          accentColor="orange"
-          isLoading={false}
-        />
       </div>
+      <TokenomicsCards icpPrice={icpPrice} />
       <MarketCapChart />
-      <LiquidityTable icpPrice={icpPrice} />
+      <MintBurnRatio />
+      <LiquidityTable icpPrice={icpPrice} btcPrice={btcPrice} />
     </div>
   );
 }

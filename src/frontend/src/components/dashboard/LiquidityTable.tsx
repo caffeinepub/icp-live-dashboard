@@ -27,11 +27,8 @@ function makeActivity(vals: number[]): BarPoint[] {
   return vals.map((value, pos) => ({ pos, value }));
 }
 
-function buildPools(icpPrice: number): LiquidityPool[] {
-  // Use a stable BTC price approximation derived from market context
-  // BTC price isn't fetched live here, so we use a widely-known reference
-  const BTC_PRICE = 65_000;
-  const icpInBtc = icpPrice / BTC_PRICE;
+function buildPools(icpPrice: number, btcPrice: number): LiquidityPool[] {
+  const icpInBtc = icpPrice / btcPrice;
   const icpInEth = icpPrice / 2_500;
 
   return [
@@ -74,7 +71,7 @@ function buildPools(icpPrice: number): LiquidityPool[] {
     {
       pool: "ckBTC / USDT",
       platform: "ICPSwap",
-      priceLabel: `$${BTC_PRICE.toLocaleString()}`,
+      priceLabel: `$${btcPrice.toLocaleString()}`,
       change24h: 0.92,
       volume24h: 5_800_000,
       liquidity: 22_600_000,
@@ -110,8 +107,14 @@ function MiniBar({ data }: { data: BarPoint[] }) {
   );
 }
 
-export function LiquidityTable({ icpPrice }: { icpPrice: number }) {
-  const pools = buildPools(icpPrice);
+export function LiquidityTable({
+  icpPrice,
+  btcPrice,
+}: {
+  icpPrice: number;
+  btcPrice: number;
+}) {
+  const pools = buildPools(icpPrice, btcPrice);
 
   return (
     <motion.div

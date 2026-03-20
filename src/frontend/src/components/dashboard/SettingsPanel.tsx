@@ -8,7 +8,8 @@ import {
   useSettings,
 } from "@/context/SettingsContext";
 import { useNetworkStats } from "@/hooks/useNetworkStats";
-import { Globe, RotateCcw, Settings2 } from "lucide-react";
+import { useTokenomics } from "@/hooks/useTokenomics";
+import { Flame, Globe, RotateCcw, Settings2 } from "lucide-react";
 import { motion } from "motion/react";
 
 const REFRESH_OPTIONS: { value: RefreshInterval; label: string }[] = [
@@ -66,6 +67,7 @@ function Row({
 export function SettingsPanel() {
   const { settings, updateSettings, resetSettings } = useSettings();
   const { data: network } = useNetworkStats();
+  const { data: tokenomics, isLoading: tokenomicsLoading } = useTokenomics();
 
   const toggleAlertType = (type: AlertType) => {
     const has = settings.enabledAlertTypes.includes(type);
@@ -76,6 +78,12 @@ export function SettingsPanel() {
         : [...settings.enabledAlertTypes, type],
     });
   };
+
+  const burnedDisplay = tokenomicsLoading
+    ? "Loading..."
+    : tokenomics
+      ? `${(tokenomics.totalBurned / 1_000_000).toFixed(2)}M ICP`
+      : "--";
 
   return (
     <motion.div
@@ -227,33 +235,63 @@ export function SettingsPanel() {
             </div>
           </Row>
 
+          {/* Live Burn Data - read only, from IC API */}
           <div className="border-t border-border/20 pt-4 flex flex-col gap-3">
             <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Supply Reference
+              Live Tokenomics (IC API)
             </div>
-
-            <Row
-              label="Supply Burned (ICP)"
-              description="Total ICP burned (editable reference)"
-            >
-              <div className="flex flex-col items-end gap-1 w-48">
-                <span className="text-xs font-mono text-orange">
-                  {(settings.supplyBurned / 1_000_000).toFixed(2)}M
-                </span>
-                <Slider
-                  min={10_000_000}
-                  max={100_000_000}
-                  step={1_000_000}
-                  value={[settings.supplyBurned]}
-                  onValueChange={([v]) => updateSettings({ supplyBurned: v })}
-                  className="w-full"
-                />
-                <div className="flex justify-between w-full text-xs text-muted-foreground">
-                  <span>10M</span>
-                  <span>100M</span>
+            <div className="flex items-center gap-2 mb-1">
+              <Flame className="h-3.5 w-3.5 text-orange" />
+              <span className="text-xs text-muted-foreground">
+                Pulled live from IC API every 10 minutes. Read-only.
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-accent/30 rounded-lg p-3">
+                <div className="text-xs text-muted-foreground">
+                  Total Burned
+                </div>
+                <div className="text-lg font-bold mt-0.5 text-orange">
+                  {burnedDisplay}
                 </div>
               </div>
-            </Row>
+              <div className="bg-accent/30 rounded-lg p-3">
+                <div className="text-xs text-muted-foreground">
+                  Circulating Supply
+                </div>
+                <div className="text-lg font-bold mt-0.5 text-green">
+                  {tokenomicsLoading
+                    ? "Loading..."
+                    : tokenomics
+                      ? `${(tokenomics.currentSupply / 1_000_000).toFixed(1)}M ICP`
+                      : "--"}
+                </div>
+              </div>
+              <div className="bg-accent/30 rounded-lg p-3">
+                <div className="text-xs text-muted-foreground">
+                  Total Minted
+                </div>
+                <div className="text-lg font-bold mt-0.5 text-cyan">
+                  {tokenomicsLoading
+                    ? "Loading..."
+                    : tokenomics
+                      ? `${(tokenomics.totalMinted / 1_000_000).toFixed(1)}M ICP`
+                      : "--"}
+                </div>
+              </div>
+              <div className="bg-accent/30 rounded-lg p-3">
+                <div className="text-xs text-muted-foreground">
+                  Mint/Burn Ratio
+                </div>
+                <div className="text-lg font-bold mt-0.5 text-foreground">
+                  {tokenomicsLoading
+                    ? "Loading..."
+                    : tokenomics
+                      ? `${tokenomics.mintBurnRatio.toFixed(1)}x`
+                      : "--"}
+                </div>
+              </div>
+            </div>
           </div>
         </Section>
 
