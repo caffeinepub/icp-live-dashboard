@@ -16,7 +16,7 @@ interface BarPoint {
 interface LiquidityPool {
   pool: string;
   platform: string;
-  price: number;
+  priceLabel: string;
   change24h: number;
   volume24h: number;
   liquidity: number;
@@ -27,62 +27,70 @@ function makeActivity(vals: number[]): BarPoint[] {
   return vals.map((value, pos) => ({ pos, value }));
 }
 
-const POOLS: LiquidityPool[] = [
-  {
-    pool: "ICP / USDT",
-    platform: "ICPSwap",
-    price: 12.48,
-    change24h: 2.34,
-    volume24h: 8_420_000,
-    liquidity: 32_100_000,
-    activity: makeActivity([4, 6, 5, 8, 7, 9, 8, 10, 9, 11]),
-  },
-  {
-    pool: "ICP / ckBTC",
-    platform: "ICPSwap",
-    price: 0.000248,
-    change24h: -1.12,
-    volume24h: 3_200_000,
-    liquidity: 15_800_000,
-    activity: makeActivity([7, 5, 6, 4, 5, 4, 3, 5, 4, 3]),
-  },
-  {
-    pool: "ICP / USDC",
-    platform: "Sonic",
-    price: 12.51,
-    change24h: 1.87,
-    volume24h: 2_100_000,
-    liquidity: 9_400_000,
-    activity: makeActivity([3, 4, 5, 6, 5, 7, 6, 8, 7, 9]),
-  },
-  {
-    pool: "ICP / ETH",
-    platform: "InfinitySwap",
-    price: 0.00385,
-    change24h: -3.41,
-    volume24h: 1_540_000,
-    liquidity: 7_200_000,
-    activity: makeActivity([8, 6, 5, 4, 5, 3, 4, 3, 2, 3]),
-  },
-  {
-    pool: "ckBTC / USDT",
-    platform: "ICPSwap",
-    price: 51_240.0,
-    change24h: 0.92,
-    volume24h: 5_800_000,
-    liquidity: 22_600_000,
-    activity: makeActivity([5, 6, 7, 6, 8, 7, 9, 8, 10, 9]),
-  },
-  {
-    pool: "SNS-1 / ICP",
-    platform: "Sonic",
-    price: 0.0842,
-    change24h: 5.23,
-    volume24h: 420_000,
-    liquidity: 1_800_000,
-    activity: makeActivity([2, 3, 4, 6, 8, 9, 10, 11, 13, 15]),
-  },
-];
+function buildPools(icpPrice: number): LiquidityPool[] {
+  // Use a stable BTC price approximation derived from market context
+  // BTC price isn't fetched live here, so we use a widely-known reference
+  const BTC_PRICE = 65_000;
+  const icpInBtc = icpPrice / BTC_PRICE;
+  const icpInEth = icpPrice / 2_500;
+
+  return [
+    {
+      pool: "ICP / USDT",
+      platform: "ICPSwap",
+      priceLabel: `$${icpPrice.toFixed(2)}`,
+      change24h: 2.34,
+      volume24h: 8_420_000,
+      liquidity: 32_100_000,
+      activity: makeActivity([4, 6, 5, 8, 7, 9, 8, 10, 9, 11]),
+    },
+    {
+      pool: "ICP / ckBTC",
+      platform: "ICPSwap",
+      priceLabel: icpInBtc.toFixed(6),
+      change24h: -1.12,
+      volume24h: 3_200_000,
+      liquidity: 15_800_000,
+      activity: makeActivity([7, 5, 6, 4, 5, 4, 3, 5, 4, 3]),
+    },
+    {
+      pool: "ICP / USDC",
+      platform: "Sonic",
+      priceLabel: `$${icpPrice.toFixed(2)}`,
+      change24h: 1.87,
+      volume24h: 2_100_000,
+      liquidity: 9_400_000,
+      activity: makeActivity([3, 4, 5, 6, 5, 7, 6, 8, 7, 9]),
+    },
+    {
+      pool: "ICP / ETH",
+      platform: "InfinitySwap",
+      priceLabel: icpInEth.toFixed(5),
+      change24h: -3.41,
+      volume24h: 1_540_000,
+      liquidity: 7_200_000,
+      activity: makeActivity([8, 6, 5, 4, 5, 3, 4, 3, 2, 3]),
+    },
+    {
+      pool: "ckBTC / USDT",
+      platform: "ICPSwap",
+      priceLabel: `$${BTC_PRICE.toLocaleString()}`,
+      change24h: 0.92,
+      volume24h: 5_800_000,
+      liquidity: 22_600_000,
+      activity: makeActivity([5, 6, 7, 6, 8, 7, 9, 8, 10, 9]),
+    },
+    {
+      pool: "SNS-1 / ICP",
+      platform: "Sonic",
+      priceLabel: `${(0.0842).toFixed(4)} ICP`,
+      change24h: 5.23,
+      volume24h: 420_000,
+      liquidity: 1_800_000,
+      activity: makeActivity([2, 3, 4, 6, 8, 9, 10, 11, 13, 15]),
+    },
+  ];
+}
 
 function MiniBar({ data }: { data: BarPoint[] }) {
   const max = Math.max(...data.map((d) => d.value));
@@ -102,14 +110,9 @@ function MiniBar({ data }: { data: BarPoint[] }) {
   );
 }
 
-function formatPrice(price: number) {
-  if (price >= 1000)
-    return `$${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  if (price >= 1) return `$${price.toFixed(2)}`;
-  return `$${price.toFixed(6)}`;
-}
+export function LiquidityTable({ icpPrice }: { icpPrice: number }) {
+  const pools = buildPools(icpPrice);
 
-export function LiquidityTable() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -150,7 +153,7 @@ export function LiquidityTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {POOLS.map((pool, i) => (
+            {pools.map((pool, i) => (
               <TableRow
                 key={pool.pool}
                 className="border-border/20 hover:bg-accent/30 transition-colors"
@@ -167,7 +170,7 @@ export function LiquidityTable() {
                   </div>
                 </TableCell>
                 <TableCell className="font-mono text-sm text-foreground">
-                  {formatPrice(pool.price)}
+                  {pool.priceLabel}
                 </TableCell>
                 <TableCell>
                   <span

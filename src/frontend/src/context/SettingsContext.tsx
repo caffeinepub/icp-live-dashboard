@@ -15,10 +15,8 @@ export interface DashboardSettings {
   showSparklines: boolean;
   showSupplyProgress: boolean;
   compactMode: boolean;
-  // Supply / network
+  // Supply
   supplyBurned: number;
-  totalSubnets: number;
-  totalNodes: number;
 }
 
 const DEFAULT: DashboardSettings = {
@@ -31,8 +29,6 @@ const DEFAULT: DashboardSettings = {
   showSupplyProgress: true,
   compactMode: false,
   supplyBurned: 35_420_000,
-  totalSubnets: 41,
-  totalNodes: 1_312,
 };
 
 interface SettingsContextValue {

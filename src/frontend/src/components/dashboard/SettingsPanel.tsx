@@ -7,7 +7,8 @@ import {
   type RefreshInterval,
   useSettings,
 } from "@/context/SettingsContext";
-import { RotateCcw, Settings2 } from "lucide-react";
+import { useNetworkStats } from "@/hooks/useNetworkStats";
+import { Globe, RotateCcw, Settings2 } from "lucide-react";
 import { motion } from "motion/react";
 
 const REFRESH_OPTIONS: { value: RefreshInterval; label: string }[] = [
@@ -64,10 +65,11 @@ function Row({
 
 export function SettingsPanel() {
   const { settings, updateSettings, resetSettings } = useSettings();
+  const { data: network } = useNetworkStats();
 
   const toggleAlertType = (type: AlertType) => {
     const has = settings.enabledAlertTypes.includes(type);
-    if (has && settings.enabledAlertTypes.length === 1) return; // keep at least one
+    if (has && settings.enabledAlertTypes.length === 1) return;
     updateSettings({
       enabledAlertTypes: has
         ? settings.enabledAlertTypes.filter((t) => t !== type)
@@ -227,7 +229,7 @@ export function SettingsPanel() {
 
           <div className="border-t border-border/20 pt-4 flex flex-col gap-3">
             <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Network Constants
+              Supply Reference
             </div>
 
             <Row
@@ -252,52 +254,46 @@ export function SettingsPanel() {
                 </div>
               </div>
             </Row>
+          </div>
+        </Section>
 
-            <Row
-              label="Total Subnets"
-              description="Number of active network subnets"
-            >
-              <div className="flex flex-col items-end gap-1 w-48">
-                <span className="text-xs font-mono text-cyan">
-                  {settings.totalSubnets}
-                </span>
-                <Slider
-                  min={1}
-                  max={100}
-                  step={1}
-                  value={[settings.totalSubnets]}
-                  onValueChange={([v]) => updateSettings({ totalSubnets: v })}
-                  className="w-full"
-                />
-                <div className="flex justify-between w-full text-xs text-muted-foreground">
-                  <span>1</span>
-                  <span>100</span>
+        {/* Network Constants - live, read-only */}
+        <Section title="Network Constants (Live)">
+          <div className="flex items-center gap-2 mb-1">
+            <Globe className="h-3.5 w-3.5 text-cyan" />
+            <span className="text-xs text-muted-foreground">
+              Pulled live from the IC network every 5 minutes. Read-only.
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              {
+                label: "Active Subnets",
+                value: network ? network.totalSubnets.toString() : "--",
+                color: "text-cyan",
+              },
+              {
+                label: "Total Nodes",
+                value: network ? network.totalNodes.toLocaleString() : "--",
+                color: "text-foreground",
+              },
+              {
+                label: "Block Rate",
+                value: network
+                  ? `${network.blockRatePerSec.toFixed(2)}/s`
+                  : "--",
+                color: "text-green",
+              },
+            ].map((item) => (
+              <div key={item.label} className="bg-accent/30 rounded-lg p-3">
+                <div className="text-xs text-muted-foreground">
+                  {item.label}
+                </div>
+                <div className={`text-lg font-bold mt-0.5 ${item.color}`}>
+                  {item.value}
                 </div>
               </div>
-            </Row>
-
-            <Row
-              label="Total Nodes"
-              description="Number of active network nodes"
-            >
-              <div className="flex flex-col items-end gap-1 w-48">
-                <span className="text-xs font-mono text-cyan">
-                  {settings.totalNodes.toLocaleString()}
-                </span>
-                <Slider
-                  min={100}
-                  max={5000}
-                  step={100}
-                  value={[settings.totalNodes]}
-                  onValueChange={([v]) => updateSettings({ totalNodes: v })}
-                  className="w-full"
-                />
-                <div className="flex justify-between w-full text-xs text-muted-foreground">
-                  <span>100</span>
-                  <span>5k</span>
-                </div>
-              </div>
-            </Row>
+            ))}
           </div>
         </Section>
 
@@ -327,56 +323,6 @@ export function SettingsPanel() {
               onCheckedChange={(v) => updateSettings({ compactMode: v })}
             />
           </Row>
-        </Section>
-
-        {/* Live Preview */}
-        <Section title="Live Preview">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              {
-                label: "Whale Min",
-                value: `${settings.whaleMinIcp.toLocaleString()} ICP`,
-                color: "text-cyan",
-              },
-              {
-                label: "Alert Every",
-                value: `${settings.whaleIntervalSecs}s`,
-                color: "text-cyan",
-              },
-              {
-                label: "Market Refresh",
-                value: `${settings.refreshIntervalSecs}s`,
-                color: "text-green",
-              },
-              {
-                label: "Supply Burned",
-                value: `${(settings.supplyBurned / 1_000_000).toFixed(1)}M`,
-                color: "text-orange",
-              },
-              {
-                label: "Subnets",
-                value: settings.totalSubnets.toString(),
-                color: "text-cyan",
-              },
-              {
-                label: "Nodes",
-                value: settings.totalNodes.toLocaleString(),
-                color: "text-foreground",
-              },
-            ].map((item) => (
-              <div key={item.label} className="bg-accent/30 rounded-lg p-3">
-                <div className="text-xs text-muted-foreground">
-                  {item.label}
-                </div>
-                <div className={`text-lg font-bold mt-0.5 ${item.color}`}>
-                  {item.value}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Changes apply instantly to the live dashboard.
-          </div>
         </Section>
       </div>
     </motion.div>

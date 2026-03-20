@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { SettingsProvider, useSettings } from "@/context/SettingsContext";
 import { useMarketData } from "@/hooks/useMarketData";
+import { useNetworkStats } from "@/hooks/useNetworkStats";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Activity,
@@ -170,17 +171,19 @@ function Header({
 function DashboardTab({
   market,
   isLoading,
+  icpPrice,
 }: {
   market: ReturnType<typeof useMarketData>["data"];
   isLoading: boolean;
+  icpPrice: number;
 }) {
   const { settings } = useSettings();
-  const price = market?.price ?? 12.5;
+  const { data: network } = useNetworkStats();
   const supplyPct = market
     ? (market.circulatingSupply / market.totalSupply) * 100
     : 93.6;
 
-  const priceSparkline = buildSparkline(price);
+  const priceSparkline = buildSparkline(icpPrice);
   const mcSparkline = buildSparkline(market?.marketCap ?? 5_850_000_000, 14);
 
   const [canisters, setCanisters] = useState(TOTAL_CANISTERS_START);
@@ -195,6 +198,9 @@ function DashboardTab({
     ? `$${(market.marketCap / 1_000_000_000).toFixed(2)}B`
     : "$5.85B";
 
+  const totalSubnets = network?.totalSubnets ?? 41;
+  const totalNodes = network?.totalNodes ?? 1312;
+
   return (
     <div
       className={`flex flex-col gap-5 ${settings.compactMode ? "text-xs" : ""}`}
@@ -202,7 +208,7 @@ function DashboardTab({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           title="ICP Price"
-          value={`$${price.toFixed(2)}`}
+          value={`$${icpPrice.toFixed(2)}`}
           change={market?.change24h}
           icon={<CircleDollarSign className="h-4 w-4" />}
           sparklineData={settings.showSparklines ? priceSparkline : undefined}
@@ -247,14 +253,15 @@ function DashboardTab({
           isLoading={false}
         >
           <span className="text-xs text-muted-foreground">
-            &asymp; ${((settings.supplyBurned * price) / 1_000_000).toFixed(0)}M
-            value burned
+            &asymp; $
+            {((settings.supplyBurned * icpPrice) / 1_000_000).toFixed(0)}M value
+            burned
           </span>
         </KpiCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <WhaleAlerts icpPrice={price} />
+        <WhaleAlerts icpPrice={icpPrice} />
         <div className="flex flex-col gap-4">
           <VolumeChart />
           <div
@@ -283,13 +290,13 @@ function DashboardTab({
               <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground">Subnets</span>
                 <span className="text-lg font-bold text-cyan">
-                  {settings.totalSubnets}
+                  {totalSubnets}
                 </span>
               </div>
               <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground">Nodes</span>
                 <span className="text-lg font-bold text-foreground">
-                  {settings.totalNodes.toLocaleString()}
+                  {totalNodes.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -325,7 +332,7 @@ function DashboardTab({
               { label: "NNS Canisters", val: "57" },
               { label: "System Canisters", val: "1,204" },
               { label: "Active 24h", val: "~412k" },
-              { label: "Subnets", val: settings.totalSubnets.toString() },
+              { label: "Subnets", val: totalSubnets.toString() },
             ].map((item) => (
               <div key={item.label} className="bg-accent/30 rounded p-2">
                 <div className="text-xs text-muted-foreground">
@@ -345,7 +352,7 @@ function DashboardTab({
         <CanisterGrowthChart />
       </div>
 
-      <LiquidityTable />
+      <LiquidityTable icpPrice={icpPrice} />
     </div>
   );
 }
@@ -353,13 +360,14 @@ function DashboardTab({
 function MarketTab({
   market,
   isLoading,
+  icpPrice,
 }: {
   market: ReturnType<typeof useMarketData>["data"];
   isLoading: boolean;
+  icpPrice: number;
 }) {
   const { settings } = useSettings();
-  const price = market?.price ?? 12.5;
-  const priceSparkline = buildSparkline(price);
+  const priceSparkline = buildSparkline(icpPrice);
   const mcSparkline = buildSparkline(market?.marketCap ?? 5_850_000_000);
   const mcValue = market
     ? `$${(market.marketCap / 1_000_000_000).toFixed(2)}B`
@@ -373,7 +381,7 @@ function MarketTab({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           title="ICP Price"
-          value={`$${price.toFixed(2)}`}
+          value={`$${icpPrice.toFixed(2)}`}
           change={market?.change24h}
           icon={<CircleDollarSign className="h-4 w-4" />}
           sparklineData={settings.showSparklines ? priceSparkline : undefined}
@@ -404,13 +412,13 @@ function MarketTab({
         />
       </div>
       <MarketCapChart />
-      <LiquidityTable />
+      <LiquidityTable icpPrice={icpPrice} />
     </div>
   );
 }
 
 function NetworkTab() {
-  const { settings } = useSettings();
+  const { data: network } = useNetworkStats();
   const [canisters, setCanisters] = useState(TOTAL_CANISTERS_START);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -419,20 +427,23 @@ function NetworkTab() {
     return () => clearInterval(interval);
   }, []);
 
+  const totalSubnets = network?.totalSubnets ?? 41;
+  const totalNodes = network?.totalNodes ?? 1312;
+
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
             title: "Active Subnets",
-            value: settings.totalSubnets.toString(),
+            value: totalSubnets.toString(),
             sub: "All operational",
             color: "text-cyan",
           },
           {
             title: "Total Nodes",
-            value: settings.totalNodes.toLocaleString(),
-            sub: "~1,300 globally",
+            value: totalNodes.toLocaleString(),
+            sub: "Globally distributed",
             color: "text-foreground",
           },
           {
@@ -443,7 +454,9 @@ function NetworkTab() {
           },
           {
             title: "Block Time",
-            value: "~1.5s",
+            value: network
+              ? `${(1 / network.blockRatePerSec).toFixed(1)}s`
+              : "~1.5s",
             sub: "Average finality",
             color: "text-cyan",
           },
@@ -558,7 +571,7 @@ function Dashboard() {
     setIsRefreshing(false);
   };
 
-  const icpPrice = market?.price ?? 12.5;
+  const icpPrice = market?.price ?? 0;
 
   return (
     <div className="min-h-screen">
@@ -590,7 +603,11 @@ function Dashboard() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
-              <DashboardTab market={market} isLoading={isLoading} />
+              <DashboardTab
+                market={market}
+                isLoading={isLoading}
+                icpPrice={icpPrice}
+              />
             </motion.div>
           )}
           {activeTab === "market" && (
@@ -601,7 +618,11 @@ function Dashboard() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
-              <MarketTab market={market} isLoading={isLoading} />
+              <MarketTab
+                market={market}
+                isLoading={isLoading}
+                icpPrice={icpPrice}
+              />
             </motion.div>
           )}
           {activeTab === "network" && (
@@ -641,7 +662,7 @@ function Dashboard() {
       </main>
 
       <footer className="max-w-[1200px] mx-auto px-4 sm:px-6 py-4 border-t border-border/30 mt-8">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+        <div className="flex flex-col sm:flex:row items-center justify-between gap-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
             <span>ICP Live Analytics Dashboard</span>
             <span className="hidden sm:inline">&middot;</span>
