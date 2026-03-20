@@ -55,12 +55,12 @@ async function fetchMarketData(): Promise<MarketData> {
   }
 }
 
-export function useMarketData() {
+export function useMarketData(refreshIntervalSecs = 60) {
   return useQuery<MarketData>({
-    queryKey: ["marketData"],
+    queryKey: ["marketData", refreshIntervalSecs],
     queryFn: fetchMarketData,
-    refetchInterval: 60_000,
-    staleTime: 55_000,
+    refetchInterval: refreshIntervalSecs * 1000,
+    staleTime: (refreshIntervalSecs - 5) * 1000,
     retry: 1,
   });
 }

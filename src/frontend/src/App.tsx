@@ -6,10 +6,12 @@ import {
 } from "@/components/dashboard/Charts";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { LiquidityTable } from "@/components/dashboard/LiquidityTable";
+import { SettingsPanel } from "@/components/dashboard/SettingsPanel";
 import { WhaleAlerts } from "@/components/dashboard/WhaleAlerts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { SettingsProvider, useSettings } from "@/context/SettingsContext";
 import { useMarketData } from "@/hooks/useMarketData";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -23,6 +25,7 @@ import {
   Globe,
   Network,
   RefreshCw,
+  Settings2,
   TrendingUp,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -30,10 +33,7 @@ import { useEffect, useState } from "react";
 
 const queryClient = new QueryClient();
 
-const SUPPLY_BURNED = 35_420_000;
 const TOTAL_CANISTERS_START = 620_000;
-const TOTAL_SUBNETS = 41;
-const TOTAL_NODES = 1_312;
 
 interface SparklinePoint {
   value: number;
@@ -50,13 +50,14 @@ function buildSparkline(currentPrice: number, length = 14): SparklinePoint[] {
   return data;
 }
 
-type Tab = "dashboard" | "market" | "network" | "alerts";
+type Tab = "dashboard" | "market" | "network" | "alerts" | "settings";
 
 const NAV_TABS: { id: Tab; label: string; icon: typeof Activity }[] = [
   { id: "dashboard", label: "Dashboard", icon: Activity },
   { id: "market", label: "Market", icon: TrendingUp },
   { id: "network", label: "Network", icon: Network },
   { id: "alerts", label: "Alerts", icon: Bell },
+  { id: "settings", label: "Settings", icon: Settings2 },
 ];
 
 function Header({
@@ -173,6 +174,7 @@ function DashboardTab({
   market: ReturnType<typeof useMarketData>["data"];
   isLoading: boolean;
 }) {
+  const { settings } = useSettings();
   const price = market?.price ?? 12.5;
   const supplyPct = market
     ? (market.circulatingSupply / market.totalSupply) * 100
@@ -194,14 +196,16 @@ function DashboardTab({
     : "$5.85B";
 
   return (
-    <div className="flex flex-col gap-5">
+    <div
+      className={`flex flex-col gap-5 ${settings.compactMode ? "text-xs" : ""}`}
+    >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           title="ICP Price"
           value={`$${price.toFixed(2)}`}
           change={market?.change24h}
           icon={<CircleDollarSign className="h-4 w-4" />}
-          sparklineData={priceSparkline}
+          sparklineData={settings.showSparklines ? priceSparkline : undefined}
           accentColor="cyan"
           isLoading={isLoading}
         />
@@ -210,7 +214,7 @@ function DashboardTab({
           value={mcValue}
           change={market?.change24h}
           icon={<TrendingUp className="h-4 w-4" />}
-          sparklineData={mcSparkline}
+          sparklineData={settings.showSparklines ? mcSparkline : undefined}
           accentColor="cyan"
           isLoading={isLoading}
         />
@@ -225,23 +229,26 @@ function DashboardTab({
           accentColor="green"
           isLoading={isLoading}
         >
-          <div className="flex flex-col gap-1">
-            <Progress value={supplyPct} className="h-1.5" />
-            <span className="text-xs text-muted-foreground">
-              {supplyPct.toFixed(1)}% of total
-            </span>
-          </div>
+          {settings.showSupplyProgress && (
+            <div className="flex flex-col gap-1">
+              <Progress value={supplyPct} className="h-1.5" />
+              <span className="text-xs text-muted-foreground">
+                {supplyPct.toFixed(1)}% of total
+              </span>
+            </div>
+          )}
         </KpiCard>
         <KpiCard
           title="Total Supply Burned"
-          value={`${(SUPPLY_BURNED / 1_000_000).toFixed(2)}M ICP`}
+          value={`${(settings.supplyBurned / 1_000_000).toFixed(2)}M ICP`}
           changeLabel="all time"
           icon={<Flame className="h-4 w-4 text-orange" />}
           accentColor="orange"
           isLoading={false}
         >
           <span className="text-xs text-muted-foreground">
-            ≈ ${((SUPPLY_BURNED * price) / 1_000_000).toFixed(0)}M value burned
+            &asymp; ${((settings.supplyBurned * price) / 1_000_000).toFixed(0)}M
+            value burned
           </span>
         </KpiCard>
       </div>
@@ -276,13 +283,13 @@ function DashboardTab({
               <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground">Subnets</span>
                 <span className="text-lg font-bold text-cyan">
-                  {TOTAL_SUBNETS}
+                  {settings.totalSubnets}
                 </span>
               </div>
               <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground">Nodes</span>
                 <span className="text-lg font-bold text-foreground">
-                  {TOTAL_NODES.toLocaleString()}
+                  {settings.totalNodes.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -318,7 +325,7 @@ function DashboardTab({
               { label: "NNS Canisters", val: "57" },
               { label: "System Canisters", val: "1,204" },
               { label: "Active 24h", val: "~412k" },
-              { label: "Subnets", val: TOTAL_SUBNETS.toString() },
+              { label: "Subnets", val: settings.totalSubnets.toString() },
             ].map((item) => (
               <div key={item.label} className="bg-accent/30 rounded p-2">
                 <div className="text-xs text-muted-foreground">
@@ -350,6 +357,7 @@ function MarketTab({
   market: ReturnType<typeof useMarketData>["data"];
   isLoading: boolean;
 }) {
+  const { settings } = useSettings();
   const price = market?.price ?? 12.5;
   const priceSparkline = buildSparkline(price);
   const mcSparkline = buildSparkline(market?.marketCap ?? 5_850_000_000);
@@ -368,7 +376,7 @@ function MarketTab({
           value={`$${price.toFixed(2)}`}
           change={market?.change24h}
           icon={<CircleDollarSign className="h-4 w-4" />}
-          sparklineData={priceSparkline}
+          sparklineData={settings.showSparklines ? priceSparkline : undefined}
           accentColor="cyan"
           isLoading={isLoading}
         />
@@ -376,7 +384,7 @@ function MarketTab({
           title="Market Cap"
           value={mcValue}
           icon={<TrendingUp className="h-4 w-4" />}
-          sparklineData={mcSparkline}
+          sparklineData={settings.showSparklines ? mcSparkline : undefined}
           accentColor="cyan"
           isLoading={isLoading}
         />
@@ -389,7 +397,7 @@ function MarketTab({
         />
         <KpiCard
           title="Supply Burned"
-          value={`${(SUPPLY_BURNED / 1_000_000).toFixed(2)}M`}
+          value={`${(settings.supplyBurned / 1_000_000).toFixed(2)}M`}
           icon={<Flame className="h-4 w-4 text-orange" />}
           accentColor="orange"
           isLoading={false}
@@ -402,6 +410,7 @@ function MarketTab({
 }
 
 function NetworkTab() {
+  const { settings } = useSettings();
   const [canisters, setCanisters] = useState(TOTAL_CANISTERS_START);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -416,13 +425,13 @@ function NetworkTab() {
         {[
           {
             title: "Active Subnets",
-            value: TOTAL_SUBNETS.toString(),
+            value: settings.totalSubnets.toString(),
             sub: "All operational",
             color: "text-cyan",
           },
           {
             title: "Total Nodes",
-            value: TOTAL_NODES.toLocaleString(),
+            value: settings.totalNodes.toLocaleString(),
             sub: "~1,300 globally",
             color: "text-foreground",
           },
@@ -482,6 +491,7 @@ function NetworkTab() {
 }
 
 function AlertsTab({ icpPrice }: { icpPrice: number }) {
+  const { settings } = useSettings();
   return (
     <div className="flex flex-col gap-5">
       <WhaleAlerts icpPrice={icpPrice} />
@@ -490,29 +500,30 @@ function AlertsTab({ icpPrice }: { icpPrice: number }) {
           Alert Thresholds
         </div>
         <div className="text-xs text-muted-foreground mb-4">
-          Whale alerts trigger for transfers ≥ 50,000 ICP
+          Whale alerts trigger for transfers &ge;{" "}
+          {settings.whaleMinIcp.toLocaleString()} ICP
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
               label: "Min Whale Size",
-              value: "50,000 ICP",
+              value: `${settings.whaleMinIcp.toLocaleString()} ICP`,
               color: "text-cyan",
             },
             {
-              label: "Last 1 Hour",
-              value: "12 alerts",
+              label: "Alert Interval",
+              value: `${settings.whaleIntervalSecs}s`,
               color: "text-foreground",
             },
             {
-              label: "Last 24 Hours",
-              value: "187 alerts",
+              label: "Max Alerts",
+              value: settings.maxAlertsShown.toString(),
               color: "text-foreground",
             },
             {
-              label: "Largest Today",
-              value: "498,234 ICP",
-              color: "text-orange",
+              label: "Active Types",
+              value: settings.enabledAlertTypes.length.toString(),
+              color: "text-green",
             },
           ].map((item) => (
             <div key={item.label} className="bg-accent/30 rounded-lg p-3">
@@ -530,7 +541,13 @@ function AlertsTab({ icpPrice }: { icpPrice: number }) {
 
 function Dashboard() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
-  const { data: market, isLoading, refetch, dataUpdatedAt } = useMarketData();
+  const { settings } = useSettings();
+  const {
+    data: market,
+    isLoading,
+    refetch,
+    dataUpdatedAt,
+  } = useMarketData(settings.refreshIntervalSecs);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
@@ -609,6 +626,17 @@ function Dashboard() {
               <AlertsTab icpPrice={icpPrice} />
             </motion.div>
           )}
+          {activeTab === "settings" && (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+            >
+              <SettingsPanel />
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -616,11 +644,13 @@ function Dashboard() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
             <span>ICP Live Analytics Dashboard</span>
-            <span className="hidden sm:inline">·</span>
-            <span className="hidden sm:inline">Data refreshes every 60s</span>
+            <span className="hidden sm:inline">&middot;</span>
+            <span className="hidden sm:inline">
+              Refresh: {settings.refreshIntervalSecs}s
+            </span>
           </div>
           <div>
-            © {new Date().getFullYear()}. Built with ❤️ using{" "}
+            &copy; {new Date().getFullYear()}. Built with &hearts; using{" "}
             <a
               href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
               target="_blank"
@@ -639,7 +669,9 @@ function Dashboard() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Dashboard />
+      <SettingsProvider>
+        <Dashboard />
+      </SettingsProvider>
     </QueryClientProvider>
   );
 }
